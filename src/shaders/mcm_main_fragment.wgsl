@@ -8,41 +8,34 @@ struct Photon {
 }
 
 @group(0) @binding(0)
-var<storage, read_write> photons: array<Photon>;
-
-@group(1) @binding(0)
-var<uniform> dimensions: vec2<u32>;
-
-@group(1) @binding(1)
 var<uniform> mvp_inverse: mat4x4<f32>;
-
-@group(1) @binding(2)
+@group(0) @binding(1)
+var<uniform> resolution: vec2<u32>;
+@group(0) @binding(2)
 var<uniform> inverse_resolution: vec2<f32>;
-
-@group(1) @binding(3)
+@group(0) @binding(3)
 var<uniform> random_seed: f32;
-
-@group(2) @binding(0)
+@group(0) @binding(4)
 var<uniform> extinction: f32;
-
-@group(2) @binding(1)
+@group(0) @binding(5)
 var<uniform> anisotropy: f32;
-
-@group(2) @binding(2)
+@group(0) @binding(6)
 var<uniform> max_bounces: u32;
-
-@group(2) @binding(3)
+@group(0) @binding(7)
 var<uniform> steps: u32;
 
-@group(3) @binding(0)
+@group(1) @binding(0)
 var volume_texture: texture_3d<f32>;
-@group(3) @binding(1)
+@group(1) @binding(1)
 var volume_sampler: sampler;
-
-@group(3) @binding(2)
+@group(1) @binding(2)
 var transfer_function_texture: texture_2d<f32>;
-@group(3) @binding(3)
+@group(1) @binding(3)
 var transfer_function_sampler: sampler;
+
+@group(2) @binding(0)
+var<storage, read_write> result: array<vec4<f32>>;
+
 
 fn hash(x: ptr<function, u32>) -> u32 {
     *x = *x * 747796405u + 2891336453u;
@@ -164,24 +157,24 @@ fn mean3(v: vec3<f32>) -> f32 {
     return dot(v, vec3<f32>(1.0 / 3.0));
 }
 
-@compute @workgroup_size(8, 8)
-fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    if (global_id.x >= dimensions.x) || (global_id.y >= dimensions.y) {
-        return;
-    }
+@fragment
+fn main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> {
+    let res_x_f32 = f32(resolution.x);
+    let res_y_f32 = f32(resolution.y);
 
-    let index = global_id.y * dimensions.y + global_id.x;
-    let position = (vec2<f32>(global_id.xy) / vec2<f32>(dimensions)) * 2.0 - 1.0;
+    let x = u32(in_position.x);
+    let y = u32(in_position.y);
 
-    var buffer_photon = photons[index];
+    let index = x + y * resolution.x;
+
+    let position = vec2<f32>(
+        in_position.x / res_x_f32,
+        in_position.y / res_y_f32
+    );
 
     var photon: Photon;
-    photon.position = buffer_photon.position;
-    photon.direction = buffer_photon.direction;
-    photon.bounces = buffer_photon.bounces;
-    photon.transmittance = buffer_photon.transmittance;
-    photon.radiance = buffer_photon.radiance;
-    photon.samples = buffer_photon.samples;
+    var fr: vec3<f32>;
+    var to: vec3<f32>;
 
     let hash_arg = vec3<u32>(
         bitcast<u32>(position.x),
@@ -189,6 +182,16 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         bitcast<u32>(random_seed)
     );
     var state = squash_linear(hash_arg);
+
+    unproject_rand(&state, position, mvp_inverse, inverse_resolution, &fr, &to);
+
+    photon.direction = vec4<f32>(normalize(to - fr), 0.0);
+    let t_bounds = max(intersect_cube(fr, photon.direction.xyz), vec2<f32>(0.0, 0.0));
+    photon.position = vec4<f32>(fr - t_bounds.x * photon.direction.xyz, 0.0);
+    photon.transmittance = vec4<f32>(1.0, 1.0, 1.0, 0.0);
+    photon.radiance = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    photon.bounces = 0u;
+    photon.samples = 0u;
 
     for (var i = 0u; i < steps; i++) {
         let dist = random_exponential(&state, extinction);
@@ -224,10 +227,7 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
         }
     }
 
-    photons[index].position = photon.position;
-    photons[index].direction = photon.direction;
-    photons[index].transmittance = photon.transmittance;
-    photons[index].radiance = photon.radiance;
-    photons[index].bounces = photon.bounces;
-    photons[index].samples = photon.samples;
+    result[index] = photon.radiance;
+
+    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
 }

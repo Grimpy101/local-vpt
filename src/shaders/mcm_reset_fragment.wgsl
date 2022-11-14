@@ -13,19 +13,16 @@ struct UnprojectOut {
 }
 
 @group(0) @binding(0)
-var<storage, read_write> photons: array<Photon>;
+var<uniform> mvp_inverse: mat4x4<f32>;
+@group(0) @binding(1)
+var<uniform> resolution: vec2<u32>;
+@group(0) @binding(2)
+var<uniform> inverse_resolution: vec2<f32>;
+@group(0) @binding(3)
+var<uniform> random_seed: f32;
 
 @group(1) @binding(0)
-var<uniform> dimensions: vec2<u32>;
-
-@group(1) @binding(1)
-var<uniform> mvp_inverse: mat4x4<f32>;
-
-@group(1) @binding(2)
-var<uniform> inverse_resolution: vec2<f32>;
-
-@group(1) @binding(3)
-var<uniform> random_seed: f32;
+var<storage, read_write> photons: array<Photon>;
 
 fn hash(x: ptr<function, u32>) -> u32 {
     *x = *x * 747796405u + 2891336453u;
@@ -92,22 +89,28 @@ fn intersect_cube(origin: vec3<f32>, direction: vec3<f32>) -> vec2<f32> {
     return vec2<f32>(t_near, t_far);
 }
 
-@compute @workgroup_size(8, 8)
-fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
-    if (global_id.x >= dimensions.x) || (global_id.y >= dimensions.y) {
-        return;
-    }
+@fragment
+fn main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> {
+    let res_x_f32 = f32(resolution.x);
+    let res_y_f32 = f32(resolution.y);
 
-    let index = global_id.y * dimensions.y + global_id.x;
-    let position = (vec2<f32>(global_id.xy) / vec2<f32>(dimensions)) * 2.0 - 1.0;
+    let x = u32(in_position.x);
+    let y = u32(in_position.y);
+
+    let index = x + y * resolution.x;
+
+    let position = vec2<f32>(
+        in_position.x / res_x_f32,
+        in_position.y / res_y_f32
+    );
 
     var photon: Photon;
     var fr: vec3<f32>;
     var to: vec3<f32>;
 
     let hash_arg = vec3<u32>(
-        bitcast<u32>(position.x),
-        bitcast<u32>(position.y),
+        bitcast<u32>(in_position.x),
+        bitcast<u32>(in_position.y),
         bitcast<u32>(random_seed)
     );
     var state = squash_linear(hash_arg);
@@ -124,4 +127,6 @@ fn main(@builtin(global_invocation_id) global_id: vec3<u32>) {
     photon.samples = 0u;
 
     photons[index] = photon;
+
+    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
 }

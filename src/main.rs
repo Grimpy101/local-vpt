@@ -1,6 +1,7 @@
 mod camera;
-mod gpu2;
+mod pipeline;
 mod math;
+mod mcm_renderer;
 
 use std::{path::PathBuf, fs, io::Error};
 
@@ -43,7 +44,7 @@ fn main() {
     let output_file = "output.ppm";
     let volume_file = "test_volume.raw";
     let transfer_function_file: Option<&str> = None;
-    let steps = 10;
+    let steps = 1000;
 
     let out_res = 512;
 
@@ -66,7 +67,7 @@ fn main() {
             }
         },
         None => {
-            vec![0, 0, 0, 255, 255, 0, 0, 255]
+            vec![0, 0, 0, 0, 255, 0, 0, 255]
         }
     };
 
@@ -77,8 +78,8 @@ fn main() {
     let mut image: Vec<u8> = Vec::with_capacity(image_size as usize);
 
     pollster::block_on(
-        gpu2::render(
-            gpu2::RenderData {
+        pipeline::render(
+            pipeline::RenderData {
                 output_resolution: out_res,
                 volume: volume,
                 volume_dims: volume_dims,
