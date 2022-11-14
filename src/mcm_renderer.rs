@@ -585,8 +585,7 @@ pub async fn render(device: &Device, queue: &wgpu::Queue, data: &RenderData, cam
     let data = buffer_slice.get_mapped_range();
     
     unsafe {
-        let (b, colors, e) = data.align_to::<f32>();
-        println!("{}-{}", b.len(), e.len());
+        let (_, colors, _) = data.align_to::<f32>();
         for i in (0..colors.len()).step_by(4) {
             let r = (colors[i] * 255.0) as u8;
             let g = (colors[i + 1] * 255.0) as u8;

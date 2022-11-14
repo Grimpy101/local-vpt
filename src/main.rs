@@ -3,7 +3,7 @@ mod pipeline;
 mod math;
 mod mcm_renderer;
 
-use std::{path::PathBuf, fs, io::Error};
+use std::{path::PathBuf, fs, io::Error, time::Instant};
 
 use clap::{Parser, command};
 
@@ -46,7 +46,10 @@ fn main() {
     let transfer_function_file: Option<&str> = None;
     let steps = 1000;
 
-    let out_res = 512;
+    let out_res = 1024;
+
+    println!("Starting...");
+    let timer = Instant::now();
 
     let volume = match read_u8_file(volume_file) {
         Ok(v) => v,
@@ -81,14 +84,14 @@ fn main() {
         pipeline::render(
             pipeline::RenderData {
                 output_resolution: out_res,
-                volume: volume,
-                volume_dims: volume_dims,
-                transfer_function: transfer_function,
+                volume,
+                volume_dims,
+                transfer_function,
                 transfer_function_len: tf_len as u32,
                 extinction: 100.0,
                 anisotropy: 0.0,
                 max_bounces: 8,
-                steps: steps
+                steps
                 
             },
             &mut image
@@ -105,5 +108,5 @@ fn main() {
         }
     }
 
-    println!("Starting...")
+    println!("Time: {}", timer.elapsed().as_secs_f32());
 }

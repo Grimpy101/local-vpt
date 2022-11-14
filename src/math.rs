@@ -1,4 +1,4 @@
-use std::{ops::{Sub, Mul, Neg}, fmt::Display};
+use std::{ops::{Sub, Neg}, fmt::Display};
 
 #[derive(Debug)]
 pub struct Matrix4f {
@@ -29,13 +29,13 @@ impl Vector3f {
         };
     }
 
-    pub fn clone(&self) -> Self {
+    /*pub fn clone(&self) -> Self {
         Vector3f {
             x: self.x,
             y: self.y,
             z: self.z
         }
-    }
+    }*/
 
     pub fn distance(&self) -> f32 {
         return (self.x*self.x + self.y*self.y + self.z*self.z).sqrt();
@@ -260,7 +260,7 @@ impl Matrix4f {
         return res;
     }
 
-    pub fn from_translation(x: f32, y: f32, z: f32) -> Matrix4f {
+    /*pub fn from_translation(x: f32, y: f32, z: f32) -> Matrix4f {
         let mut res = Matrix4f::new();
 
         res.m[0][3] = x;
@@ -318,7 +318,7 @@ impl Matrix4f {
         res.m[1][1] = y;
         res.m[2][2] = z;
         return res;
-    }
+    }*/
 }
 
 impl Display for Matrix4f {
