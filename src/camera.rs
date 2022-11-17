@@ -30,19 +30,25 @@ impl Camera {
     }
 
     pub fn look_at(&mut self, focus: Vector3f) {
-        let v1 = Vector3f::new(0.0, 0.0, -1.0);
-        let mut v2 = self.position - focus;
-        v2.normalize();
+        let a = Vector3f::new(0.0, 0.0, -1.0);
+        let mut b = focus - self.position;
+        b.normalize();
 
-        let v1_dist2 = Vector3f::dot(&v1, &v1);
-        let v2_dist2 = Vector3f::dot(&v2, &v2);
-        let v1_v2 = Vector3f::dot(&v1, &v2);
+        let phi = -Vector3f::dot(&a, &b).acos();
+        let cos_hphi = (phi / 2.0).cos();
+        let sin_hphi = (phi / 2.0).sin();
 
-        let a = Vector3f::cross(&v1, &v2);
-        let q = Quaternion::new(
-            a.x, a.y, a.z,
-            (v1_dist2 * v2_dist2).sqrt() + v1_v2
+        let mut axis = Vector3f::cross(&a, &b);
+        axis.normalize();
+
+        let mut q = Quaternion::new(
+            axis.x * sin_hphi,
+            axis.y * sin_hphi,
+            axis.z * sin_hphi,
+            cos_hphi
         );
+        q.normalize();
+        println!("{} {} {} {}", q.x, q.y, q.z, q.w);
         self.rotation = q;
     }
 

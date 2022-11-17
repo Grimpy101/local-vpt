@@ -9,18 +9,30 @@ use clap::{Parser, command};
 
 
 #[derive(Parser, Debug)]
-#[command(name = "Local VPT")]
-#[command(author, version, about, long_about = None)]
+#[command(name = "vpt-lazy-ripoff")]
+#[command(author = "Gorazd Gorup, Žiga Lesar")]
+#[command(version = "1.0")]
+#[command(about = "Generates a volume visualization based on given data", long_about = None)]
 struct Arguments {
     volume: PathBuf,
     #[arg(short, long)]
+    dimensions_volume: Vec<u32>,
+    #[arg(short, long)]
     transfer_function: Option<PathBuf>,
     #[arg(short, long)]
-    camera_position: Option<Vec<i32>>,
+    camera_position: Option<Vec<f32>>,
+    #[arg(short, long, default_value_t = 512)]
+    resolution: u32,
     #[arg(short, long, default_value = "output.ppt")]
     output: PathBuf,
     #[arg(short, long, default_value_t = 50)]
-    steps: i32
+    steps: u32,
+    #[arg(short, long, default_value_t = 0.0)]
+    anisotropy: f32,
+    #[arg(short, long, default_value_t = 100.0)]
+    extinction: f32,
+    #[arg(short, long, default_value_t = 8)]
+    bounces: u32
 }
 
 fn read_u8_file(filename: &str) -> Result<Vec<u8>, Error> {
@@ -41,17 +53,34 @@ fn write_output(filename: &str, width: u32, height: u32, content: Vec<u8>) -> Re
 }
 
 fn main() {
-    let output_file = "output.ppm";
-    let volume_file = "test_volume.raw";
-    let transfer_function_file: Option<&str> = None;
-    let steps = 1000;
+    let args = Arguments::parse();
 
-    let out_res = 1024;
+    let output_file = args.output;
+    let volume_file = args.volume;
+    let transfer_function_file: Option<PathBuf> = args.transfer_function;
+    let steps = args.steps;
+    let out_res = args.resolution;
+    let volume_dims = (
+        args.dimensions_volume[0],
+        args.dimensions_volume[1],
+        args.dimensions_volume[2]
+    );
+    let anisotropy = args.anisotropy;
+    let extinction = args.extinction;
+    let bounces = args.bounces;
+    let camera_position = match args.camera_position {
+        Some(c) => {
+            (c[0], c[1], c[2])
+        },
+        None => {
+            (0.0, 0.0, 0.0)
+        },
+    };
 
     println!("Starting...");
     let timer = Instant::now();
 
-    let volume = match read_u8_file(volume_file) {
+    let volume = match read_u8_file(volume_file.to_str().unwrap()) {
         Ok(v) => v,
         Err(e) => {
             eprintln!("Error: Coult not open volume {:?}: {}", volume_file, e);
@@ -61,7 +90,7 @@ fn main() {
 
     let transfer_function = match transfer_function_file {
         Some(tf_file) => {
-            match read_u8_file(tf_file) {
+            match read_u8_file(tf_file.to_str().unwrap()) {
                 Ok(tf) => tf,
                 Err(e) => {
                     eprintln!("Error: Could not open transfer function {:?}: {}", tf_file, e);
@@ -74,7 +103,6 @@ fn main() {
         }
     };
 
-    let volume_dims = (256, 256, 113);
     let tf_len = transfer_function.len() / 4;
 
     let image_size = out_res * out_res * 3;
@@ -88,17 +116,17 @@ fn main() {
                 volume_dims,
                 transfer_function,
                 transfer_function_len: tf_len as u32,
-                extinction: 100.0,
-                anisotropy: 0.0,
-                max_bounces: 8,
-                steps
-                
+                extinction,
+                anisotropy,
+                max_bounces: bounces,
+                steps,
+                camera_position
             },
             &mut image
         )
     );
 
-    match write_output(output_file, out_res, out_res, image) {
+    match write_output(output_file.to_str().unwrap(), out_res, out_res, image) {
         Ok(()) => {
             println!("Image written!")
         },

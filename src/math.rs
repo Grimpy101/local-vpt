@@ -100,30 +100,33 @@ impl Quaternion {
         };
     }
 
+    pub fn normalize(&mut self) {
+        let len = (self.x*self.x + self.y*self.y + self.z*self.z + self.w*self.w).sqrt();
+        self.x = self.x / len;
+        self.y = self.y / len;
+        self.z = self.z / len;
+    }
+
     pub fn to_rotation_matrix(&self) -> Matrix4f {
         let x = self.x;
         let y = self.y;
         let z = self.z;
         let w = self.w;
 
-        let x2 = x + x;
-        let y2 = y + y;
-        let z2 = z + z;
-
-        let xx = x * x2;
-        let xy = x * y2;
-        let xz = x * z2;
-        let yy = y * y2;
-        let yz = y * z2;
-        let zz = z * z2;
-        let wx = w * x2;
-        let wy = w * y2;
-        let wz = w * z2;
+        let xx = x*x;
+        let yy = y*y;
+        let zz = z*z;
+        let xy = x*y;
+        let yz = y*z;
+        let xz = x*z;
+        let xw = x*w;
+        let yw = y*w;
+        let zw = z*w;
 
         let res = Matrix4f::from_values(vec![
-            1.0 - (yy + zz), xy + wz, xz - wy, 0.0,
-            xy - wz, 1.0 - (xx + zz), yz + wx, 0.0,
-            xz + wy, yz - wx, 1.0 - (xx + yy), 0.0,
+            1.0 - 2.0*(yy + zz), 2.0*(xy + zw), 2.0*(xz - yw), 0.0,
+            2.0*(xy - zw), 1.0 - 2.0*(xx + zz), 2.0*(yz + xw), 0.0,
+            2.0*(xz + yw), 2.0*(yz - xw), 1.0 - 2.0*(xx + yy), 0.0,
             0.0, 0.0, 0.0, 1.0
         ]);
         return res;

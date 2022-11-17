@@ -9,7 +9,8 @@ pub struct RenderData {
     pub extinction: f32,
     pub anisotropy: f32,
     pub max_bounces: u32,
-    pub steps: u32
+    pub steps: u32,
+    pub camera_position: (f32, f32, f32)
 }
 
 pub async fn render(data: RenderData, output: &mut Vec<u8>) {
@@ -19,7 +20,11 @@ pub async fn render(data: RenderData, output: &mut Vec<u8>) {
 
     let mut camera = Camera::new();
     camera.set_position(
-        Vector3f::new(-0.5, -0.5, 2.5)
+        Vector3f::new(
+            data.camera_position.0,
+            data.camera_position.1,
+            data.camera_position.2
+        )
     );
     camera.look_at(Vector3f::new(0.0, 0.0, 0.0));
     camera.set_fov_x(0.512);
@@ -42,7 +47,7 @@ pub async fn render(data: RenderData, output: &mut Vec<u8>) {
     );
 
     let pvm_inverse = pvm_matrix.inverse().transpose();
-
+    println!("{}", pvm_inverse);
 
     // -------------- Initialization -------------- //
 

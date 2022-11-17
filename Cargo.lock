@@ -409,18 +409,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "local-vpt"
-version = "0.1.0"
-dependencies = [
- "bytemuck",
- "clap",
- "futures-intrusive",
- "pollster",
- "rand",
- "wgpu",
-]
-
-[[package]]
 name = "lock_api"
 version = "0.4.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -794,6 +782,18 @@ name = "version_check"
 version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "49874b5167b65d7193b8aba1567f5c7d93d001cafc34600cee003eda787e483f"
+
+[[package]]
+name = "vpt-lazy-ripoff"
+version = "0.1.0"
+dependencies = [
+ "bytemuck",
+ "clap",
+ "futures-intrusive",
+ "pollster",
+ "rand",
+ "wgpu",
+]
 
 [[package]]
 name = "wasi"

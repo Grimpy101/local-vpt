@@ -1,8 +1,8 @@
 struct Photon {
-    position: vec4<f32>,
-    direction: vec4<f32>,
-    transmittance: vec4<f32>,
-    radiance: vec4<f32>,
+    position: vec3<f32>,
+    direction: vec3<f32>,
+    transmittance: vec3<f32>,
+    radiance: vec3<f32>,
     bounces: u32,
     samples: u32
 }
@@ -63,8 +63,8 @@ fn random_exponential(state: ptr<function, u32>, rate: f32) -> f32 {
     return -log(random_uniform(state)) / rate;
 }
 
-fn sample_volume_color(position: vec4<f32>) -> vec4<f32> {
-    let volume_sample = textureSample(volume_texture, volume_sampler, position.xyz).r;
+fn sample_volume_color(position: vec3<f32>) -> vec4<f32> {
+    let volume_sample = textureSample(volume_texture, volume_sampler, position).r;
     let location = vec2<f32>(volume_sample, 0.5);
     let transfer_sample = textureSample(transfer_function_texture, transfer_function_sampler, location);
     return transfer_sample;
@@ -86,8 +86,8 @@ fn random_sphere(state: ptr<function, u32>) -> vec3<f32> {
 }
 
 fn intersect_cube(origin: vec3<f32>, direction: vec3<f32>) -> vec2<f32> {
-    let t_min = (vec3<f32>(0.0, 0.0, 0.0) - origin) / direction;
-    let t_max = (vec3<f32>(1.0, 1.0, 1.0) - origin) / direction;
+    let t_min = (vec3<f32>(0.0) - origin) / direction;
+    let t_max = (vec3<f32>(1.0) - origin) / direction;
     
     let t1 = min(t_min, t_max);
     let t2 = max(t_min, t_max);
@@ -106,13 +106,9 @@ fn unproject_rand(
     fr: ptr<function, vec3<f32>>,
     to: ptr<function, vec3<f32>>
 ) {
-    let near_position = vec4<f32>(position.x, position.y, -1.0, 1.0);
+    let near_position = vec4<f32>(position, -1.0, 1.0);
     let antialiasing = (random_square(state) * 2.0 - 1.0) * inverse_res;
-    let far_position = vec4<f32>(
-        position.x + antialiasing.x,
-        position.y + antialiasing.y,
-        1.0,
-        1.0);
+    let far_position = vec4<f32>(position + antialiasing, 1.0, 1.0);
     
     let fr_dirty = inverse_mvp * near_position;
     let to_dirty = inverse_mvp * far_position;
@@ -124,12 +120,14 @@ fn unproject_rand(
 fn reset_photon(state: ptr<function, u32>, position: vec2<f32>, photon: ptr<function, Photon>) {
     var fr: vec3<f32>;
     var to: vec3<f32>;
+
     unproject_rand(state, position, mvp_inverse, inverse_resolution, &fr, &to);
-    (*photon).direction = vec4<f32>(normalize(to - fr), 0.0);
+
+    (*photon).direction = normalize(to - fr);
     (*photon).bounces = 0u;
-    let t_bounds = max(intersect_cube(fr, (*photon).direction.xyz), vec2<f32>(0.0));
-    (*photon).position = vec4<f32>(fr + t_bounds.x * (*photon).direction.xyz, 1.0);
-    (*photon).transmittance = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    let t_bounds = max(intersect_cube(fr, (*photon).direction), vec2<f32>(0.0));
+    (*photon).position = fr + t_bounds.x * (*photon).direction;
+    (*photon).transmittance = vec3<f32>(1.0);
 }
 
 fn sample_henyey_greenstein_angle_cosine(state: ptr<function, u32>, g: f32) -> f32 {
@@ -165,31 +163,33 @@ fn main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> {
     let x = u32(in_position.x);
     let y = u32(in_position.y);
 
+    let v0 = vec3<f32>(0.0);
+    let v1 = vec3<f32>(1.0);
+
     let index = x + y * resolution.x;
 
     let position = vec2<f32>(
-        in_position.x / res_x_f32,
-        in_position.y / res_y_f32
+        (in_position.x / res_x_f32) * 2.0 - 1.0,
+        (in_position.y / res_y_f32) * 2.0 - 1.0
     );
 
     var photon: Photon;
     var fr: vec3<f32>;
     var to: vec3<f32>;
 
-    let hash_arg = vec3<u32>(
+    var state = squash_linear(vec3<u32>(
         bitcast<u32>(position.x),
         bitcast<u32>(position.y),
         bitcast<u32>(random_seed)
-    );
-    var state = squash_linear(hash_arg);
+    ));
 
     unproject_rand(&state, position, mvp_inverse, inverse_resolution, &fr, &to);
 
-    photon.direction = vec4<f32>(normalize(to - fr), 0.0);
-    let t_bounds = max(intersect_cube(fr, photon.direction.xyz), vec2<f32>(0.0, 0.0));
-    photon.position = vec4<f32>(fr - t_bounds.x * photon.direction.xyz, 0.0);
-    photon.transmittance = vec4<f32>(1.0, 1.0, 1.0, 0.0);
-    photon.radiance = vec4<f32>(1.0, 1.0, 1.0, 1.0);
+    photon.direction = normalize(to - fr);
+    let t_bounds = max(intersect_cube(fr, photon.direction), vec2<f32>(0.0));
+    photon.position = fr + t_bounds.x * photon.direction;
+    photon.transmittance = vec3<f32>(1.0);
+    photon.radiance = vec3<f32>(1.0);
     photon.bounces = 0u;
     photon.samples = 0u;
 
@@ -209,25 +209,25 @@ fn main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> {
         let p_absorption = 1.0 - p_null - p_scattering;
 
         let fortune_wheel = random_uniform(&state);
-        if any(photon.position.xyz > vec3<f32>(1.0, 1.0, 1.0)) || any(photon.position.xyz < vec3<f32>(0.0, 0.0, 0.0)) {
-            let env_sample = vec4<f32>(1.0);
+        if any(photon.position > v1) || any(photon.position < v0) {
+            let env_sample = vec3<f32>(1.0);
             let radiance = photon.transmittance * env_sample;
             photon.samples++;
             photon.radiance += (radiance - photon.radiance) / f32(photon.samples);
             reset_photon(&state, position, &photon);
         } else if fortune_wheel < p_absorption {
-            let radiance = vec4<f32>(0.0, 0.0, 0.0, 1.0);
+            let radiance = vec3<f32>(0.0);
             photon.samples++;
             photon.radiance += (radiance - photon.radiance) / f32(photon.samples);
             reset_photon(&state, position, &photon);
         } else if fortune_wheel < p_absorption + p_scattering {
-            photon.transmittance *= volume_sample;
-            photon.direction = vec4<f32>(sample_henyey_greenstein(&state, anisotropy, photon.direction.xyz), 0.0);
+            photon.transmittance *= volume_sample.rgb;
+            photon.direction = sample_henyey_greenstein(&state, anisotropy, photon.direction);
             photon.bounces++;
         }
     }
 
-    result[index] = photon.radiance;
+    result[index] = vec4<f32>(photon.radiance, 1.0);
 
     return vec4<f32>(0.0, 0.0, 0.0, 1.0);
 }
