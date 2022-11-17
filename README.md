@@ -1,4 +1,4 @@
-# VPT-LR (VPT Local Rendering or VPT Lazy Ripoff)
+# VPT Local Rendering
 Based on [VPT web application](https://github.com/terier/vpt) by Žiga Lesar
 
 A command-line application for rendering images from volumetric data, written in Rust and using WebGPU.
