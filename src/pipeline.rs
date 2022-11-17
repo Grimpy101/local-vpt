@@ -3,14 +3,14 @@ use crate::{camera::Camera, math::{Vector3f, Matrix4f}, mcm_renderer};
 pub struct RenderData {
     pub output_resolution: u32,
     pub volume: Vec<u8>,
-    pub volume_dims: (u32, u32, u32),
+    pub volume_dims: [u32; 3],
     pub transfer_function: Vec<u8>,
     pub transfer_function_len: u32,
     pub extinction: f32,
     pub anisotropy: f32,
     pub max_bounces: u32,
     pub steps: u32,
-    pub camera_position: (f32, f32, f32)
+    pub camera_position: [f32; 3]
 }
 
 pub async fn render(data: RenderData, output: &mut Vec<u8>) {
@@ -21,9 +21,9 @@ pub async fn render(data: RenderData, output: &mut Vec<u8>) {
     let mut camera = Camera::new();
     camera.set_position(
         Vector3f::new(
-            data.camera_position.0,
-            data.camera_position.1,
-            data.camera_position.2
+            data.camera_position[0],
+            data.camera_position[1],
+            data.camera_position[2]
         )
     );
     camera.look_at(Vector3f::new(0.0, 0.0, 0.0));
@@ -47,7 +47,6 @@ pub async fn render(data: RenderData, output: &mut Vec<u8>) {
     );
 
     let pvm_inverse = pvm_matrix.inverse().transpose();
-    println!("{}", pvm_inverse);
 
     // -------------- Initialization -------------- //
 

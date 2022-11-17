@@ -157,9 +157,9 @@ pub async fn render(device: &Device, queue: &wgpu::Queue, data: &RenderData, cam
         &wgpu::TextureDescriptor {
             label: Some("VolumeTexture"),
             size: wgpu::Extent3d {
-                width: data.volume_dims.0,
-                height: data.volume_dims.1,
-                depth_or_array_layers: data.volume_dims.2
+                width: data.volume_dims[0],
+                height: data.volume_dims[1],
+                depth_or_array_layers: data.volume_dims[2]
             },
             mip_level_count: 1,
             sample_count: 1,
@@ -199,13 +199,13 @@ pub async fn render(device: &Device, queue: &wgpu::Queue, data: &RenderData, cam
         &data.volume,
         wgpu::ImageDataLayout {
             offset: 0,
-            bytes_per_row: std::num::NonZeroU32::new(data.volume_dims.0),
-            rows_per_image: std::num::NonZeroU32::new(data.volume_dims.1)
+            bytes_per_row: std::num::NonZeroU32::new(data.volume_dims[0]),
+            rows_per_image: std::num::NonZeroU32::new(data.volume_dims[1])
         },
         wgpu::Extent3d {
-            width: data.volume_dims.0,
-            height: data.volume_dims.1,
-            depth_or_array_layers: data.volume_dims.2
+            width: data.volume_dims[0],
+            height: data.volume_dims[1],
+            depth_or_array_layers: data.volume_dims[2]
         }
     );
 

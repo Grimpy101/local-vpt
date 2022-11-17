@@ -48,7 +48,6 @@ impl Camera {
             cos_hphi
         );
         q.normalize();
-        println!("{} {} {} {}", q.x, q.y, q.z, q.w);
         self.rotation = q;
     }
 
