@@ -36,15 +36,19 @@ fn create_2d_render_texture(device: &Device, res: u32, label: &str) -> wgpu::Tex
     );
 }
 
-fn create_texture_sampler(device: &Device, label: &str) -> wgpu::Sampler {
+fn create_texture_sampler(device: &Device, label: &str, linear: bool) -> wgpu::Sampler {
+    let mut filter_mode = wgpu::FilterMode::Nearest;
+    if linear {
+        filter_mode = wgpu::FilterMode::Linear;
+    }
     return device.create_sampler(
         &wgpu::SamplerDescriptor {
             label: Some(label),
             address_mode_u: wgpu::AddressMode::ClampToEdge,
             address_mode_v: wgpu::AddressMode::ClampToEdge,
             address_mode_w: wgpu::AddressMode::ClampToEdge,
-            mag_filter: wgpu::FilterMode::Nearest,
-            min_filter: wgpu::FilterMode::Nearest,
+            mag_filter: filter_mode,
+            min_filter: filter_mode,
             mipmap_filter: wgpu::FilterMode::Nearest,
             ..Default::default()
         }
@@ -210,10 +214,10 @@ pub async fn render(device: &Device, queue: &wgpu::Queue, data: &RenderData, cam
     );
 
     let volume_view = volume_texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let volume_sampler = create_texture_sampler(&device, "VolumeSampler");
+    let volume_sampler = create_texture_sampler(&device, "VolumeSampler", data.linear);
 
     let tf_view = tf_texture.create_view(&wgpu::TextureViewDescriptor::default());
-    let tf_sampler = create_texture_sampler(&device, "TFSampler");
+    let tf_sampler = create_texture_sampler(&device, "TFSampler", false);
 
     // ------------------ Bind Group Layouts ------------------- //
 
@@ -314,7 +318,7 @@ pub async fn render(device: &Device, queue: &wgpu::Queue, data: &RenderData, cam
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Texture {
                         sample_type: wgpu::TextureSampleType::Float {
-                            filterable: false
+                            filterable: true
                         },
                         view_dimension: wgpu::TextureViewDimension::D3,
                         multisampled: false
@@ -325,7 +329,7 @@ pub async fn render(device: &Device, queue: &wgpu::Queue, data: &RenderData, cam
                     binding: 1,
                     visibility: wgpu::ShaderStages::FRAGMENT,
                     ty: wgpu::BindingType::Sampler(
-                        wgpu::SamplerBindingType::NonFiltering
+                        wgpu::SamplerBindingType::Filtering
                     ),
                     count: None,
                 },

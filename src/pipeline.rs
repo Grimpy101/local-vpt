@@ -10,7 +10,8 @@ pub struct RenderData {
     pub anisotropy: f32,
     pub max_bounces: u32,
     pub steps: u32,
-    pub camera_position: [f32; 3]
+    pub camera_position: [f32; 3],
+    pub linear: bool
 }
 
 pub async fn render(data: RenderData, output: &mut Vec<u8>) {

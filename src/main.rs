@@ -15,7 +15,8 @@ struct Arguments {
     steps: u32,
     anisotropy: f32,
     extinction: f32,
-    bounces: u32
+    bounces: u32,
+    linear: bool
 }
 
 fn read_u8_file(filename: &str) -> Result<Vec<u8>, Error> {
@@ -47,6 +48,7 @@ fn parse_arguments() -> Result<Arguments, String> {
     let mut anisotropy = 0.0;
     let mut extinction = 100.0;
     let mut bounces = 8;
+    let mut linear = false;
 
     for i in 0..args.len() {
         if args[i] == "--volume" {
@@ -88,6 +90,9 @@ fn parse_arguments() -> Result<Arguments, String> {
         else if args[i] == "--bounces" {
             bounces = args[i+1].parse::<u32>().unwrap();
         }
+        else if args[i] == "--linear" {
+            linear = true;
+        }
         else if args[i] == "--help" {
             let text = format!(
                 "** {} (version {}) **\nAuthors: {}\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
@@ -123,7 +128,8 @@ fn parse_arguments() -> Result<Arguments, String> {
         steps,
         anisotropy,
         extinction,
-        bounces
+        bounces,
+        linear
     });
 }
 
@@ -147,6 +153,7 @@ fn main() {
     let extinction = args.extinction;
     let bounces = args.bounces;
     let camera_position = args.camera_position;
+    let linear_filter = args.linear;
 
     println!("Starting...");
     let timer = Instant::now();
@@ -205,7 +212,8 @@ fn main() {
                 anisotropy,
                 max_bounces: bounces,
                 steps,
-                camera_position
+                camera_position,
+                linear: linear_filter
             },
             &mut image
         )
