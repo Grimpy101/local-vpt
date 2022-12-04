@@ -2,6 +2,7 @@ mod camera;
 mod pipeline;
 mod math;
 mod mcm_renderer;
+mod mcm_renderer2;
 
 use std::{fs, io::Error, time::Instant, env};
 
@@ -213,7 +214,8 @@ fn main() {
                 max_bounces: bounces,
                 steps,
                 camera_position,
-                linear: linear_filter
+                linear: linear_filter,
+                iterations: 1
             },
             &mut image
         )

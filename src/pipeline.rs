@@ -1,4 +1,4 @@
-use crate::{camera::Camera, math::{Vector3f, Matrix4f}, mcm_renderer};
+use crate::{camera::Camera, math::{Vector3f, Matrix4f}, mcm_renderer2};
 
 pub struct RenderData {
     pub output_resolution: u32,
@@ -11,7 +11,8 @@ pub struct RenderData {
     pub max_bounces: u32,
     pub steps: u32,
     pub camera_position: [f32; 3],
-    pub linear: bool
+    pub linear: bool,
+    pub iterations: u32
 }
 
 pub async fn render(data: RenderData, output: &mut Vec<u8>) {
@@ -64,5 +65,6 @@ pub async fn render(data: RenderData, output: &mut Vec<u8>) {
     ).await.unwrap();
 
 
-    mcm_renderer::render(&device, &queue, &data, &pvm_inverse, output).await;
+    //mcm_renderer::render(&device, &queue, &data, &pvm_inverse, output).await;
+    mcm_renderer2::render(&device, &queue, &data, &pvm_inverse, output).await;
 }
