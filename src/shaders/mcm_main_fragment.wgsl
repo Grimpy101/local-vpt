@@ -7,35 +7,56 @@ struct Photon {
     samples: u32
 }
 
+struct FragmentOutput {
+    @location(0) position: vec4<f32>,
+    @location(1) direction: vec4<f32>,
+    @location(2) ts: vec4<f32>,
+    @location(3) rb: vec4<f32>
+}
+
 @group(0) @binding(0)
-var<uniform> mvp_inverse: mat4x4<f32>;
-@group(0) @binding(1)
-var<uniform> resolution: vec2<u32>;
-@group(0) @binding(2)
-var<uniform> inverse_resolution: vec2<f32>;
-@group(0) @binding(3)
 var<uniform> random_seed: f32;
-@group(0) @binding(4)
-var<uniform> extinction: f32;
-@group(0) @binding(5)
-var<uniform> anisotropy: f32;
-@group(0) @binding(6)
-var<uniform> max_bounces: u32;
-@group(0) @binding(7)
-var<uniform> steps: u32;
 
 @group(1) @binding(0)
-var volume_texture: texture_3d<f32>;
+var<uniform> mvp_inverse: mat4x4<f32>;
 @group(1) @binding(1)
-var volume_sampler: sampler;
+var<uniform> resolution: vec2<u32>;
 @group(1) @binding(2)
-var transfer_function_texture: texture_2d<f32>;
+var<uniform> inverse_resolution: vec2<f32>;
 @group(1) @binding(3)
-var transfer_function_sampler: sampler;
+var<uniform> extinction: f32;
+@group(1) @binding(4)
+var<uniform> anisotropy: f32;
+@group(1) @binding(5)
+var<uniform> max_bounces: u32;
+@group(1) @binding(6)
+var<uniform> steps: u32;
 
 @group(2) @binding(0)
-var<storage, read_write> result: array<vec4<f32>>;
+var volume_texture: texture_3d<f32>;
+@group(2) @binding(1)
+var volume_sampler: sampler;
+@group(2) @binding(2)
+var transfer_function_texture: texture_2d<f32>;
+@group(2) @binding(3)
+var transfer_function_sampler: sampler;
 
+@group(3) @binding(0)
+var position_texture: texture_2d<f32>;
+@group(3) @binding(1)
+var position_sampler: sampler;
+@group(3) @binding(2)
+var direction_texture: texture_2d<f32>;
+@group(3) @binding(3)
+var direction_sampler: sampler;
+@group(3) @binding(4)
+var ts_texture: texture_2d<f32>;
+@group(3) @binding(5)
+var ts_sampler: sampler;
+@group(3) @binding(6)
+var rb_texture: texture_2d<f32>;
+@group(3) @binding(7)
+var rb_sampler: sampler;
 
 fn hash(x: ptr<function, u32>) -> u32 {
     *x = *x * 747796405u + 2891336453u;
@@ -156,42 +177,34 @@ fn mean3(v: vec3<f32>) -> f32 {
 }
 
 @fragment
-fn main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> {
+fn main(@builtin(position) in_position: vec4<f32>) -> FragmentOutput {
     let res_x_f32 = f32(resolution.x);
     let res_y_f32 = f32(resolution.y);
 
-    let x = u32(in_position.x);
-    let y = u32(in_position.y);
-
     let v0 = vec3<f32>(0.0);
     let v1 = vec3<f32>(1.0);
-
-    let index = x + y * resolution.x;
 
     let position = vec2<f32>(
         (in_position.x / res_x_f32) * 2.0 - 1.0,
         (in_position.y / res_y_f32) * 2.0 - 1.0
     );
+    let mapped_position = position * 0.5 + 0.5;
 
     var photon: Photon;
-    var fr: vec3<f32>;
-    var to: vec3<f32>;
+    photon.position = textureSample(position_texture, position_sampler, mapped_position).xyz;
+    photon.direction = textureSample(direction_texture, direction_sampler, mapped_position).xyz;
+    let ts = textureSample(ts_texture, ts_sampler, mapped_position);
+    photon.transmittance = ts.xyz;
+    photon.samples = u32(ts.w + 0.5);
+    let rb = textureSample(rb_texture, rb_sampler, mapped_position);
+    photon.radiance = rb.xyz;
+    photon.bounces = u32(rb.w + 0.5);
 
     var state = squash_linear(vec3<u32>(
         bitcast<u32>(position.x),
         bitcast<u32>(position.y),
         bitcast<u32>(random_seed)
     ));
-
-    unproject_rand(&state, position, mvp_inverse, inverse_resolution, &fr, &to);
-
-    photon.direction = normalize(to - fr);
-    let t_bounds = max(intersect_cube(fr, photon.direction), vec2<f32>(0.0));
-    photon.position = fr + t_bounds.x * photon.direction;
-    photon.transmittance = vec3<f32>(1.0);
-    photon.radiance = vec3<f32>(1.0);
-    photon.bounces = 0u;
-    photon.samples = 0u;
 
     for (var i = 0u; i < steps; i++) {
         let dist = random_exponential(&state, extinction);
@@ -226,8 +239,19 @@ fn main(@builtin(position) in_position: vec4<f32>) -> @location(0) vec4<f32> {
             photon.bounces++;
         }
     }
+    
+    var out: FragmentOutput;
+    out.position = vec4<f32>(photon.position, 0.0);
+    out.direction = vec4<f32>(photon.direction, 0.0);
+    out.ts = vec4<f32>(
+        photon.transmittance,
+        f32(photon.samples)
+    );
+    out.rb = vec4<f32>(
+        photon.radiance,
+        f32(photon.bounces)
+    );
+    //out.rb = vec4<f32>(0.0, 1.0, 0.0, 0.0);
 
-    result[index] = vec4<f32>(photon.radiance, 1.0);
-
-    return vec4<f32>(0.0, 0.0, 0.0, 1.0);
+    return out;
 }

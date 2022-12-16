@@ -2,7 +2,6 @@ mod camera;
 mod pipeline;
 mod math;
 mod mcm_renderer;
-mod mcm_renderer2;
 
 use std::{fs, io::Error, time::Instant, env};
 
@@ -11,13 +10,15 @@ struct Arguments {
     volume_dimensions: Option<[u32; 3]>,
     transfer_function: Option<String>,
     camera_position: [f32; 3],
-    output_resolution: u32,
+    mvp_matrix: Option<[f32; 16]>,
+    output_resolution: [u32; 2],
     output: String,
     steps: u32,
     anisotropy: f32,
     extinction: f32,
     bounces: u32,
-    linear: bool
+    linear: bool,
+    iterations: u32
 }
 
 fn read_u8_file(filename: &str) -> Result<Vec<u8>, Error> {
@@ -43,13 +44,15 @@ fn parse_arguments() -> Result<Arguments, String> {
     let mut volume_dimensions = None;
     let mut transfer_function = None;
     let mut camera_position = [-1.0, -1.0, 1.0];
-    let mut output_resolution = 512;
+    let mut mvp_matrix = None;
+    let mut output_resolution = [512, 512];
     let mut output = "output.ppm".to_string();
     let mut steps = 100;
     let mut anisotropy = 0.0;
     let mut extinction = 100.0;
     let mut bounces = 8;
     let mut linear = false;
+    let mut iterations = 1;
 
     for i in 0..args.len() {
         if args[i] == "--volume" {
@@ -74,7 +77,8 @@ fn parse_arguments() -> Result<Arguments, String> {
             ];
         }
         else if args[i] == "--out-resolution" {
-            output_resolution = args[i+1].parse::<u32>().unwrap();
+            output_resolution[0] = args[i+1].parse::<u32>().unwrap();
+            output_resolution[1] = args[i+2].parse::<u32>().unwrap();
         }
         else if args[i] == "--output" {
             output = args[i+1].to_string();
@@ -94,9 +98,32 @@ fn parse_arguments() -> Result<Arguments, String> {
         else if args[i] == "--linear" {
             linear = true;
         }
+        else if args[i] == "--iterations" {
+            iterations = args[i+1].parse::<u32>().unwrap();
+        }
+        else if args[i] == "--mvp-matrix" {
+            mvp_matrix = Some([
+                args[i+1].parse::<f32>().unwrap(),
+                args[i+2].parse::<f32>().unwrap(),
+                args[i+3].parse::<f32>().unwrap(),
+                args[i+4].parse::<f32>().unwrap(),
+                args[i+5].parse::<f32>().unwrap(),
+                args[i+6].parse::<f32>().unwrap(),
+                args[i+7].parse::<f32>().unwrap(),
+                args[i+8].parse::<f32>().unwrap(),
+                args[i+9].parse::<f32>().unwrap(),
+                args[i+10].parse::<f32>().unwrap(),
+                args[i+11].parse::<f32>().unwrap(),
+                args[i+12].parse::<f32>().unwrap(),
+                args[i+13].parse::<f32>().unwrap(),
+                args[i+14].parse::<f32>().unwrap(),
+                args[i+15].parse::<f32>().unwrap(),
+                args[i+16].parse::<f32>().unwrap()
+            ]);
+        }
         else if args[i] == "--help" {
             let text = format!(
-                "** {} (version {}) **\nAuthors: {}\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+                "** {} (version {}) **\nAuthors: {}\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
                 "VPT Lazy Ripoff",
                 "0.1.0",
                 "Gorazd Gorup, Žiga Lesar (original)",
@@ -104,12 +131,14 @@ fn parse_arguments() -> Result<Arguments, String> {
                 "--volume-dimensions : Three integers representing width, height and depth of texture (optional)",
                 "--tf : Path to the file with transfer function texture (optional)",
                 "--camera-position : Three floats representing x,y,z coordinates of camera (optional)",
+                "--mvp-matrix : 16 floats representing inversed transformation matrix (optional)",
                 "--out-resolution : An integer representing resolution of output image (optional)",
                 "--output : Path to output image file (optional)",
                 "--steps : Number of rendering steps (optional)",
                 "--anisotropy : Anisotropy (optional)",
                 "--extinction : Extinction (optional)",
-                "--bounces : Number of bounces per photon (optional)"
+                "--bounces : Number of bounces per photon (optional)",
+                "--iterations : Number of iterations (optional)",
             );
             return Err(text);
         }
@@ -124,13 +153,15 @@ fn parse_arguments() -> Result<Arguments, String> {
         volume_dimensions,
         transfer_function,
         camera_position,
+        mvp_matrix,
         output_resolution,
         output,
         steps,
         anisotropy,
         extinction,
         bounces,
-        linear
+        linear,
+        iterations
     });
 }
 
@@ -154,7 +185,9 @@ fn main() {
     let extinction = args.extinction;
     let bounces = args.bounces;
     let camera_position = args.camera_position;
+    let mvp_matrix = args.mvp_matrix;
     let linear_filter = args.linear;
+    let iterations = args.iterations;
 
     println!("Starting...");
     let timer = Instant::now();
@@ -198,7 +231,7 @@ fn main() {
 
     let tf_len = transfer_function.len() / 4;
 
-    let image_size = out_res * out_res * 3;
+    let image_size = out_res[0] * out_res[1] * 3;
     let mut image: Vec<u8> = Vec::with_capacity(image_size as usize);
 
     pollster::block_on(
@@ -215,13 +248,14 @@ fn main() {
                 steps,
                 camera_position,
                 linear: linear_filter,
-                iterations: 1
+                iterations,
+                mvp_matrix
             },
             &mut image
         )
     );
 
-    match write_output(&output_file, out_res, out_res, image) {
+    match write_output(&output_file, out_res[0], out_res[1], image) {
         Ok(()) => {
             println!("Image written!")
         },

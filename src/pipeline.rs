@@ -1,7 +1,7 @@
-use crate::{camera::Camera, math::{Vector3f, Matrix4f}, mcm_renderer2};
+use crate::{camera::Camera, math::{Vector3f, Matrix4f}, mcm_renderer};
 
 pub struct RenderData {
-    pub output_resolution: u32,
+    pub output_resolution: [u32; 2],
     pub volume: Vec<u8>,
     pub volume_dims: [u32; 3],
     pub transfer_function: Vec<u8>,
@@ -12,7 +12,8 @@ pub struct RenderData {
     pub steps: u32,
     pub camera_position: [f32; 3],
     pub linear: bool,
-    pub iterations: u32
+    pub iterations: u32,
+    pub mvp_matrix: Option<[f32; 16]>
 }
 
 pub async fn render(data: RenderData, output: &mut Vec<u8>) {
@@ -33,22 +34,28 @@ pub async fn render(data: RenderData, output: &mut Vec<u8>) {
     camera.set_fov_y(0.512);
     camera.update_matrices();
 
-    let model_matrix = Matrix4f::from_values(vec![
-        volume_scale[0], 0.0, 0.0, -0.5,
-        0.0, volume_scale[1], 0.0, -0.5,
-        0.0, 0.0, volume_scale[2], -0.5,
-        0.0, 0.0, 0.0, 1.0
-    ]);
-
-    let vm_matrix = Matrix4f::mutiply(
-        camera.get_view_matrix(), &model_matrix
-    );
-
-    let pvm_matrix = Matrix4f::mutiply(
-        camera.get_projection_matrix(), &vm_matrix
-    );
-
-    let pvm_inverse = pvm_matrix.inverse().transpose();
+    let pvm_inverse = if data.mvp_matrix.is_none() {
+        let model_matrix = Matrix4f::from_values(vec![
+            volume_scale[0], 0.0, 0.0, -0.5,
+            0.0, volume_scale[1], 0.0, -0.5,
+            0.0, 0.0, volume_scale[2], -0.5,
+            0.0, 0.0, 0.0, 1.0
+        ]);
+    
+        let vm_matrix = Matrix4f::mutiply(
+            camera.get_view_matrix(), &model_matrix
+        );
+    
+        let pvm_matrix = Matrix4f::mutiply(
+            camera.get_projection_matrix(), &vm_matrix
+        );
+    
+        pvm_matrix.inverse().transpose()
+    } else {
+        Matrix4f::from_values(
+            data.mvp_matrix.unwrap().to_vec()
+        )
+    };
 
     // -------------- Initialization -------------- //
 
@@ -66,5 +73,5 @@ pub async fn render(data: RenderData, output: &mut Vec<u8>) {
 
 
     //mcm_renderer::render(&device, &queue, &data, &pvm_inverse, output).await;
-    mcm_renderer2::render(&device, &queue, &data, &pvm_inverse, output).await;
+    mcm_renderer::render(&device, &queue, &data, &pvm_inverse, output).await;
 }
