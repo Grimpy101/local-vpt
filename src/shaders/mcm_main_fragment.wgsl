@@ -181,6 +181,17 @@ fn main(@builtin(position) in_position: vec4<f32>) -> FragmentOutput {
     let res_x_f32 = f32(resolution.x);
     let res_y_f32 = f32(resolution.y);
 
+    let x = u32(in_position.x);
+
+    if x > resolution.x {
+        var out: FragmentOutput;
+        out.position = vec4<f32>(0.0);
+        out.direction = vec4<f32>(0.0);
+        out.ts = vec4<f32>(0.0);
+        out.rb = vec4<f32>(0.0);
+        return out;
+    }
+
     let v0 = vec3<f32>(0.0);
     let v1 = vec3<f32>(1.0);
 
@@ -191,12 +202,12 @@ fn main(@builtin(position) in_position: vec4<f32>) -> FragmentOutput {
     let mapped_position = position * 0.5 + 0.5;
 
     var photon: Photon;
-    photon.position = textureSample(position_texture, position_sampler, mapped_position).xyz;
-    photon.direction = textureSample(direction_texture, direction_sampler, mapped_position).xyz;
-    let ts = textureSample(ts_texture, ts_sampler, mapped_position);
+    photon.position = textureSampleLevel(position_texture, position_sampler, mapped_position, 0.0).xyz;
+    photon.direction = textureSampleLevel(direction_texture, direction_sampler, mapped_position, 0.0).xyz;
+    let ts = textureSampleLevel(ts_texture, ts_sampler, mapped_position, 0.0);
     photon.transmittance = ts.xyz;
     photon.samples = u32(ts.w + 0.5);
-    let rb = textureSample(rb_texture, rb_sampler, mapped_position);
+    let rb = textureSampleLevel(rb_texture, rb_sampler, mapped_position, 0.0);
     photon.radiance = rb.xyz;
     photon.bounces = u32(rb.w + 0.5);
 
@@ -251,7 +262,6 @@ fn main(@builtin(position) in_position: vec4<f32>) -> FragmentOutput {
         photon.radiance,
         f32(photon.bounces)
     );
-    //out.rb = vec4<f32>(0.0, 1.0, 0.0, 0.0);
 
     return out;
 }

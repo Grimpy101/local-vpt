@@ -13,7 +13,8 @@ pub struct RenderData {
     pub camera_position: [f32; 3],
     pub linear: bool,
     pub iterations: u32,
-    pub mvp_matrix: Option<[f32; 16]>
+    pub mvp_matrix: Option<[f32; 16]>,
+    pub focal_length: f32
 }
 
 pub async fn render(data: RenderData, output: &mut Vec<u8>) {
@@ -32,6 +33,8 @@ pub async fn render(data: RenderData, output: &mut Vec<u8>) {
     camera.look_at(Vector3f::new(0.0, 0.0, 0.0));
     camera.set_fov_x(0.512);
     camera.set_fov_y(0.512);
+    let aspect_ratio = data.output_resolution[0] as f32 / data.output_resolution[1] as f32;
+    camera.set_fov(data.focal_length, aspect_ratio);
     camera.update_matrices();
 
     let pvm_inverse = if data.mvp_matrix.is_none() {

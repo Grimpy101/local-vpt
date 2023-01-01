@@ -101,6 +101,15 @@ fn main(@builtin(position) in_position: vec4<f32>) -> FragmentOutput {
     let x = u32(in_position.x);
     let y = u32(in_position.y);
 
+    if x > resolution.x {
+        var out: FragmentOutput;
+        out.position = vec4<f32>(0.0);
+        out.direction = vec4<f32>(0.0);
+        out.ts = vec4<f32>(0.0);
+        out.rb = vec4<f32>(0.0);
+        return out;
+    }
+
     let index = x + y * resolution.x;
 
     let position = vec2<f32>(

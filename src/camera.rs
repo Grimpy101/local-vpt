@@ -59,6 +59,16 @@ impl Camera {
         self.fov_y = fov;
     }
 
+    pub fn set_fov(&mut self, focal_length: f32, aspect_ratio: f32) {
+        let w = 1.0 * aspect_ratio;
+        let h = 1.0;
+        let fov_x = (w / (2.0 * focal_length)).tan() * 2.0;
+        let fov_y = (h / (2.0 * focal_length)).tan() * 2.0;
+
+        self.fov_x = fov_x;
+        self.fov_y = fov_y;
+    }
+
     pub fn update_view_matrix(&mut self) {
         let mut view_matrix = self.rotation.to_rotation_matrix();
         view_matrix.m[0][3] = self.position.x;

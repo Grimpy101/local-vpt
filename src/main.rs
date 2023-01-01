@@ -18,7 +18,8 @@ struct Arguments {
     extinction: f32,
     bounces: u32,
     linear: bool,
-    iterations: u32
+    iterations: u32,
+    focal_length: f32
 }
 
 fn read_u8_file(filename: &str) -> Result<Vec<u8>, Error> {
@@ -53,6 +54,7 @@ fn parse_arguments() -> Result<Arguments, String> {
     let mut bounces = 8;
     let mut linear = false;
     let mut iterations = 1;
+    let mut focal_length = 5.0;
 
     for i in 0..args.len() {
         if args[i] == "--volume" {
@@ -121,9 +123,12 @@ fn parse_arguments() -> Result<Arguments, String> {
                 args[i+16].parse::<f32>().unwrap()
             ]);
         }
+        else if args[i] == "--focal-length" {
+            focal_length = args[i+1].parse::<f32>().unwrap();
+        }
         else if args[i] == "--help" {
             let text = format!(
-                "** {} (version {}) **\nAuthors: {}\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+                "** {} (version {}) **\nAuthors: {}\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
                 "VPT Lazy Ripoff",
                 "0.1.0",
                 "Gorazd Gorup, Žiga Lesar (original)",
@@ -139,6 +144,7 @@ fn parse_arguments() -> Result<Arguments, String> {
                 "--extinction : Extinction (optional)",
                 "--bounces : Number of bounces per photon (optional)",
                 "--iterations : Number of iterations (optional)",
+                "--focal-length : A float representing distance of projection plane from camera origin (optional)"
             );
             return Err(text);
         }
@@ -161,7 +167,8 @@ fn parse_arguments() -> Result<Arguments, String> {
         extinction,
         bounces,
         linear,
-        iterations
+        iterations,
+        focal_length
     });
 }
 
@@ -188,6 +195,7 @@ fn main() {
     let mvp_matrix = args.mvp_matrix;
     let linear_filter = args.linear;
     let iterations = args.iterations;
+    let focal_length = args.focal_length;
 
     println!("Starting...");
     let timer = Instant::now();
@@ -249,7 +257,8 @@ fn main() {
                 camera_position,
                 linear: linear_filter,
                 iterations,
-                mvp_matrix
+                mvp_matrix,
+                focal_length
             },
             &mut image
         )

@@ -334,7 +334,8 @@ fn reset(device: &wgpu::Device, render_pass_textures: &RenderPassTextures, globa
 
 pub async fn render(device: &wgpu::Device, queue: &wgpu::Queue, data: &RenderData, camera_matrix: &Matrix4f, output: &mut Vec<u8>) {
     /* -------------- Global Textures --------------- */
-    let res_x = data.output_resolution[0];
+    let bytes_alignment = wgpu::COPY_BYTES_PER_ROW_ALIGNMENT;
+    let res_x = (data.output_resolution[0] as f32 / bytes_alignment as f32).ceil() as u32 * bytes_alignment;
     let res_y = data.output_resolution[1];
 
     let position_texture_pair = create_texture_view_sampler_pair(&device, res_x, res_y);
@@ -1137,17 +1138,24 @@ pub async fn render(device: &wgpu::Device, queue: &wgpu::Queue, data: &RenderDat
         });
         device.poll(wgpu::Maintain::Wait);
         rx.receive().await.unwrap().unwrap();
-        let data = buffer_slice.get_mapped_range();
+        let buffer_data = buffer_slice.get_mapped_range();
 
         unsafe {
-            let (_, colors, _) = data.align_to::<f32>();
-            for i in (0..colors.len()).step_by(4) {
-                let r = (colors[i] * 255.0) as u8;
-                let g = (colors[i+1] * 255.0) as u8;
-                let b = (colors[i+2] * 255.0) as u8;
-                output.push(r);
-                output.push(g);
-                output.push(b);
+            let (_, colors, _) = buffer_data.align_to::<f32>();
+            let colors_width = res_x;
+            let real_width = data.output_resolution[0];
+            let real_hight = data.output_resolution[1];
+
+            for y in 0..real_hight {
+                for x in 0..real_width {
+                    let index = ((y * colors_width + x) * 4) as usize;
+                    let r = (colors[index] * 255.0) as u8;
+                    let g = (colors[index+1] * 255.0) as u8;
+                    let b = (colors[index+2] * 255.0) as u8;
+                    output.push(r);
+                    output.push(g);
+                    output.push(b);
+                }
             }
         }
     }
