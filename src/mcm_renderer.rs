@@ -329,7 +329,6 @@ fn reset(device: &wgpu::Device, render_pass_textures: &RenderPassTextures, globa
         render_pass.set_bind_group(1, &local_uniforms_bind_group, &[]);
         render_pass.draw(0..4, 0..1);
     }
-    println!("Reset image.");
 }
 
 pub async fn render(device: &wgpu::Device, queue: &wgpu::Queue, data: &RenderData, camera_matrix: &Matrix4f, output: &mut Vec<u8>) {
@@ -1106,9 +1105,224 @@ pub async fn render(device: &wgpu::Device, queue: &wgpu::Queue, data: &RenderDat
 
     let result_index = (data.iterations % 2) as usize;
 
+    /* -------------- Tone Mapping --------------- */
+
+    let low_tone = data.tones[0];
+    let mid_tone = data.tones[1];
+    let high_tone = data.tones[2];
+    let saturation = data.saturation;
+    let gamma = data.gamma;
+
+    let low_tone_buffer = create_f32_uniform_buffer(&device, low_tone, "LowLevelBuffer");
+    let mid_tone_buffer = create_f32_uniform_buffer(&device, mid_tone, "MidLevelBuffer");
+    let high_tone_buffer = create_f32_uniform_buffer(&device, high_tone, "HighLevelBuffer");
+    let saturation_buffer = create_f32_uniform_buffer(&device, saturation, "SaturationBuffer");
+    let gamma_buffer = create_f32_uniform_buffer(&device, gamma, "GammaBuffer");
+
+    let input_texture = &render_pass_textures.radiance_bounces[result_index];
+    let result_texture = &render_pass_textures.radiance_bounces[(result_index + 1) % 2];
+
+    let bind_group_layout = device.create_bind_group_layout(
+        &wgpu::BindGroupLayoutDescriptor {
+            label: Some("ToneMapperBindGroupLayout"),
+            entries: &[
+                wgpu::BindGroupLayoutEntry {
+                    binding: 0,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Texture {
+                        sample_type: wgpu::TextureSampleType::Float {
+                            filterable: false
+                        },
+                        view_dimension: wgpu::TextureViewDimension::D2,
+                        multisampled: false
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 1,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Sampler(
+                        wgpu::SamplerBindingType::NonFiltering
+                    ),
+                    count: None
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 2,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 3,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 4,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 5,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None
+                    },
+                    count: None,
+                },
+                wgpu::BindGroupLayoutEntry {
+                    binding: 6,
+                    visibility: wgpu::ShaderStages::FRAGMENT,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
+                        has_dynamic_offset: false,
+                        min_binding_size: None
+                    },
+                    count: None,
+                }
+            ]
+        }
+    );
+
+    let bind_group = device.create_bind_group(
+        &wgpu::BindGroupDescriptor {
+            label: Some("ToneMapperBindGroup"),
+            layout: &bind_group_layout,
+            entries: &[
+                wgpu::BindGroupEntry {
+                    binding: 0,
+                    resource: wgpu::BindingResource::TextureView(&input_texture.view),
+                },
+                wgpu::BindGroupEntry {
+                    binding: 1,
+                    resource: wgpu::BindingResource::Sampler(&input_texture.sampler)
+                },
+                wgpu::BindGroupEntry {
+                    binding: 2,
+                    resource: low_tone_buffer.as_entire_binding()
+                },
+                wgpu::BindGroupEntry {
+                    binding: 3,
+                    resource: mid_tone_buffer.as_entire_binding()
+                },
+                wgpu::BindGroupEntry {
+                    binding: 4,
+                    resource: high_tone_buffer.as_entire_binding()
+                },
+                wgpu::BindGroupEntry {
+                    binding: 5,
+                    resource: saturation_buffer.as_entire_binding()
+                },
+                wgpu::BindGroupEntry {
+                    binding: 6,
+                    resource: gamma_buffer.as_entire_binding()
+                },
+            ]
+        }
+    );
+
+    let tm_vertex_shader = device.create_shader_module(
+        include_wgsl!("shaders/tm_artistic_vertex.wgsl")
+    );
+    let tm_fragment_shader = device.create_shader_module(
+        include_wgsl!("shaders/tm_artistic_fragment.wgsl")
+    );
+
+    let render_pipeline_layout = device.create_pipeline_layout(
+        &wgpu::PipelineLayoutDescriptor {
+            label: Some("TMRenderPipelineLayout"),
+            bind_group_layouts: &[
+                &bind_group_layout
+            ],
+            push_constant_ranges: &[]
+        }
+    );
+
+    let render_pipeline = device.create_render_pipeline(
+        &wgpu::RenderPipelineDescriptor {
+            label: Some("TMRenderPipeline"),
+            layout: Some(&render_pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &tm_vertex_shader,
+                entry_point: "main",
+                buffers: &[]
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &tm_fragment_shader,
+                entry_point: "main",
+                targets: &[
+                    Some(wgpu::ColorTargetState {
+                        format: wgpu::TextureFormat::Rgba32Float,
+                        blend: None,
+                        write_mask: wgpu::ColorWrites::ALL
+                    })
+                ],
+            }),
+            primitive: wgpu::PrimitiveState {
+                topology: wgpu::PrimitiveTopology::TriangleStrip,
+                strip_index_format: None,
+                front_face: wgpu::FrontFace::Ccw,
+                cull_mode: Some(wgpu::Face::Back),
+                unclipped_depth: false,
+                polygon_mode: wgpu::PolygonMode::Fill,
+                conservative: false
+            },
+            multisample: wgpu::MultisampleState {
+                count: 1,
+                mask: !0,
+                alpha_to_coverage_enabled: false
+            },
+            depth_stencil: None,
+            multiview: None
+        }
+    );
+
+    {
+        let mut render_pass = encoder.begin_render_pass(
+            &wgpu::RenderPassDescriptor {
+                label: Some("TMRenderPass"),
+                color_attachments: &[
+                    Some(wgpu::RenderPassColorAttachment {
+                        view: &result_texture.view,
+                        resolve_target: None,
+                        ops: wgpu::Operations {
+                            load: wgpu::LoadOp::Clear(
+                                wgpu::Color::TRANSPARENT
+                            ),
+                            store: true
+                        }
+                    })
+                ],
+                depth_stencil_attachment: None
+            }
+        );
+
+        render_pass.set_pipeline(&render_pipeline);
+        render_pass.set_bind_group(0, &bind_group, &[]);
+        render_pass.draw(0..4, 0..1);
+    }
+
+    /* -------------- Texture Copy --------------- */
+
     encoder.copy_texture_to_buffer(
         wgpu::ImageCopyTextureBase {
-            texture: &render_pass_textures.radiance_bounces[result_index].texture,
+            texture: &result_texture.texture,
             mip_level: 0,
             origin: wgpu::Origin3d::ZERO,
             aspect: wgpu::TextureAspect::All

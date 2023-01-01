@@ -14,7 +14,10 @@ pub struct RenderData {
     pub linear: bool,
     pub iterations: u32,
     pub mvp_matrix: Option<[f32; 16]>,
-    pub focal_length: f32
+    pub focal_length: f32,
+    pub tones: [f32; 3],
+    pub saturation: f32,
+    pub gamma: f32
 }
 
 pub async fn render(data: RenderData, output: &mut Vec<u8>) {

@@ -19,7 +19,10 @@ struct Arguments {
     bounces: u32,
     linear: bool,
     iterations: u32,
-    focal_length: f32
+    focal_length: f32,
+    tones: [f32; 3],
+    saturation: f32,
+    gamma: f32
 }
 
 fn read_u8_file(filename: &str) -> Result<Vec<u8>, Error> {
@@ -54,7 +57,10 @@ fn parse_arguments() -> Result<Arguments, String> {
     let mut bounces = 8;
     let mut linear = false;
     let mut iterations = 1;
-    let mut focal_length = 5.0;
+    let mut focal_length = 2.0;
+    let mut tones = [0.0, 0.5, 1.0];
+    let mut saturation = 1.0;
+    let mut gamma = 2.2;
 
     for i in 0..args.len() {
         if args[i] == "--volume" {
@@ -126,9 +132,20 @@ fn parse_arguments() -> Result<Arguments, String> {
         else if args[i] == "--focal-length" {
             focal_length = args[i+1].parse::<f32>().unwrap();
         }
+        else if args[i] == "--levels" {
+            tones[0] = args[i+1].parse::<f32>().unwrap();
+            tones[1] = args[i+2].parse::<f32>().unwrap();
+            tones[2] = args[i+3].parse::<f32>().unwrap();
+        }
+        else if args[i] == "--saturation" {
+            saturation = args[i+1].parse::<f32>().unwrap();
+        }
+        else if args[i] == "--gamma" {
+            gamma = args[i+1].parse::<f32>().unwrap();
+        }
         else if args[i] == "--help" {
             let text = format!(
-                "** {} (version {}) **\nAuthors: {}\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
+                "** {} (version {}) **\nAuthors: {}\n\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}",
                 "VPT Lazy Ripoff",
                 "0.1.0",
                 "Gorazd Gorup, Žiga Lesar (original)",
@@ -144,7 +161,10 @@ fn parse_arguments() -> Result<Arguments, String> {
                 "--extinction : Extinction (optional)",
                 "--bounces : Number of bounces per photon (optional)",
                 "--iterations : Number of iterations (optional)",
-                "--focal-length : A float representing distance of projection plane from camera origin (optional)"
+                "--focal-length : A float representing distance of projection plane from camera origin (optional)",
+                "--tones : Three floats representing low, mid and high tones (optional)",
+                "--saturation : Saturation on post-processing (optional)",
+                "--gamma : Gamma value on post-processing (optional)"
             );
             return Err(text);
         }
@@ -168,7 +188,10 @@ fn parse_arguments() -> Result<Arguments, String> {
         bounces,
         linear,
         iterations,
-        focal_length
+        focal_length,
+        tones,
+        saturation,
+        gamma
     });
 }
 
@@ -196,6 +219,9 @@ fn main() {
     let linear_filter = args.linear;
     let iterations = args.iterations;
     let focal_length = args.focal_length;
+    let tones = args.tones;
+    let saturation = args.saturation;
+    let gamma = args.gamma;
 
     println!("Starting...");
     let timer = Instant::now();
@@ -258,7 +284,10 @@ fn main() {
                 linear: linear_filter,
                 iterations,
                 mvp_matrix,
-                focal_length
+                focal_length,
+                tones,
+                saturation,
+                gamma
             },
             &mut image
         )
