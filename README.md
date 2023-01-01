@@ -22,8 +22,9 @@ Script accepts settings and required data throught script arguments listed below
 * `--anisotropy F` *(optional)*: A float representing anisotropy (defaults to: 0.0)
 * `--extinction F` *(optional)*: A float representing extinction (defaults to: 100.0)
 * `--bounces I` *(optional)*: An integer representing number of bounces per photon (defaults to: 8.0)
-* `--iterations I` *(optional)*: An integer representing number of iterations of rendering. This is different from steps in that this is the number of consecutive jobs on GPU (defaults to 1)
+* `--iterations I` *(optional)*: An integer representing number of iterations of rendering. This is different from steps in that this is the number of consecutive jobs on GPU (defaults to: 1)
 * `--mvp-matrix F1 F2 F3 F4 F5 F6 F7 F8 F9 F10 F11 F12 F13 F14 F15 F16` *(optional)*: An array of floats representing inverse MVP transformation matrix to use for rendering. If not specified, it is calculated from camera position. The format of array is row-by-row, from left to right, operating on column vectors
+* `--focal-length F` *(optional)*: A float representing distance of projection plane from camera origin (defaults to: 5.0)
 
 The supported formats for volume data files are:
 - raw 3D texture array where each value is a single parameter as unsigned 8-bit integer
