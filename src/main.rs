@@ -5,6 +5,9 @@ mod mcm_renderer;
 
 use std::{fs, io::Error, time::Instant, env};
 
+use toml;
+use serde::Deserialize;
+
 struct Arguments {
     volume: String,
     volume_dimensions: Option<[u32; 3]>,
@@ -23,6 +26,42 @@ struct Arguments {
     tones: [f32; 3],
     saturation: f32,
     gamma: f32
+}
+
+#[derive(Deserialize)]
+struct ConfigFileFormat {
+    output: Option<String>,
+    out_resolution: Option<Vec<u32>>,
+    data: Option<ConfigFileData>,
+    rendering: Option<ConfigFileRendering>,
+    tone_mapping: Option<ConfigFileToneMapping>
+}
+
+#[derive(Deserialize)]
+struct ConfigFileData {
+    volume: Option<String>,
+    volume_dimensions: Option<Vec<u32>>,
+    transfer_function: Option<String>
+}
+
+#[derive(Deserialize)]
+struct ConfigFileRendering {
+    camera_position: Option<Vec<f32>>,
+    mvp_matrix: Option<Vec<f32>>,
+    steps: Option<u32>,
+    anisotropy: Option<f32>,
+    extinction: Option<f32>,
+    bounces: Option<u32>,
+    linear: Option<bool>,
+    iterations: Option<u32>,
+    focal_length: Option<f32>
+}
+
+#[derive(Deserialize)]
+struct ConfigFileToneMapping {
+    tones: Option<Vec<f32>>,
+    saturation: Option<f32>,
+    gamma: Option<f32>
 }
 
 fn read_u8_file(filename: &str) -> Result<Vec<u8>, Error> {
@@ -63,6 +102,77 @@ fn parse_arguments() -> Result<Arguments, String> {
     let mut gamma = 2.2;
 
     for i in 0..args.len() {
+        if args[i] == "--config" {
+            match fs::read_to_string(&args[i+1]) {
+                Ok(s) => {
+                    match toml::from_str::<ConfigFileFormat>(&s) {
+                        Ok(config) => {
+                            if let Some(x) = config.output {
+                                output = x;
+                            }
+                            if let Some(x) = config.out_resolution {
+                                output_resolution = [x[0], x[1]];
+                            }
+                            if let Some(x) = config.data {
+                                if let Some(y) = x.volume {
+                                    volume = y;
+                                }
+                                if let Some(y) = x.volume_dimensions {
+                                    volume_dimensions = Some([y[0], y[1], y[2]])
+                                }
+                                transfer_function = x.transfer_function;
+                            }
+                            if let Some(x) = config.rendering {
+                                if let Some(y) = x.anisotropy {
+                                    anisotropy = y;
+                                }
+                                if let Some(y) = x.bounces {
+                                    bounces = y;
+                                }
+                                if let Some(y) = x.camera_position {
+                                    camera_position = [y[0], y[1], y[2]];
+                                }
+                                if let Some(y) = x.extinction {
+                                    extinction = y;
+                                }
+                                if let Some(y) = x.focal_length {
+                                    focal_length = y;
+                                }
+                                if let Some(y) = x.iterations {
+                                    iterations = y;
+                                }
+                                if let Some(y) = x.linear {
+                                    linear = y;
+                                }
+                                if let Some(y) = x.mvp_matrix {
+                                    mvp_matrix = Some([y[0],y[1],y[2],y[3],y[4],y[5],y[6],y[7],y[8],y[9],y[10],y[11],y[12],y[13],y[14],y[15]]);
+                                }
+                                if let Some(y) = x.steps {
+                                    steps = y;
+                                }
+                            }
+                            if let Some(x) = config.tone_mapping {
+                                if let Some(y) = x.gamma {
+                                    gamma = y;
+                                }
+                                if let Some(y) = x.saturation {
+                                    saturation = y;
+                                }
+                                if let Some(y) = x.tones {
+                                    tones = [y[0], y[1], y[2]];
+                                }
+                            }
+                        },
+                        Err(s) => {
+                            println!("Failed to parse config file\n  - Error: {}", s.to_string());
+                        }
+                    };
+                },
+                _ => {
+                    eprintln!("Failed to read config file");
+                }
+            }
+        }
         if args[i] == "--volume" {
             volume = args[i+1].to_string();
         }
