@@ -15,7 +15,7 @@ To build the script for the specific system, install Rust and Cargo, and run ``c
 
 2. It renders the scene. The renderer is a copy of Multiple Scattering Renderer as used in original VPT application. First, the reset pass is done to set light rays to their starting position and clear the image. Then, render pass is executed *n* times (*n* meaning the number of iterations as given by the `--iterations` option - see the Options section).
 
-3. The resulting image is put through another render pass for tone mapping and gamma correction. Tone mapper used is the Artistic Tone Mapper as seen in original VPT application. It can be configured with three arguments as noted in Options section (see `--tones`, `--saturation`, and `gamma`).
+3. The resulting image is put through another render pass for tone mapping and gamma correction. Tone mapper used is the Artistic Tone Mapper as seen in original VPT application. It can be configured with three arguments as noted in Options section (see `--tones`, `--saturation`, and `--gamma`).
 
 4. Final image is written to file in [PPM format version P3](https://en.wikipedia.org/wiki/Netpbm).
 
@@ -44,6 +44,7 @@ Script accepts settings and required data throught script arguments listed below
 * `--saturation F` *(optional)*: A float representing color saturation of the final visualization. Lower values mean more washed out colors. Used in tone mapping (defaults to: 1.0)
 * `--gamma F` *(optional)*: A float representing gamma value to use in gamma correction. Higher values mean lighter dark regions. Used in tone mapping (defaults to: 2.2)
 
+### Files and formats
 The supported formats for volume data files are:
 - raw 3D texture array where each value is a single parameter as unsigned 8-bit integer
 
